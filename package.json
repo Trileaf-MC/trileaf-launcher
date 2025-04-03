@@ -36,5 +36,8 @@
     "semi": false,
     "singleQuote": true,
     "endOfLine": "auto"
+  },
+  "dependencies": {
+    "@modrinth/monorepo": "file:"
   }
 }

@@ -7,5 +7,8 @@
     "dev": "cargo run",
     "//": "CI will fail since test takes up too much disk space. So we have it named differently.",
     "test-labrinth": "cargo test"
+  },
+  "dependencies": {
+    "@modrinth/labrinth": "file:"
   }
 }
