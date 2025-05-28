@@ -7,6 +7,7 @@ use native_dialog::{MessageDialog, MessageType};
 use std::env;
 use tauri::{Listener, Manager};
 use theseus::prelude::*;
+use tracing::warn;
 
 mod api;
 mod error;
@@ -171,6 +172,14 @@ fn main() {
     let _log_guard = theseus::start_logger();
 
     tracing::info!("Initialized tracing subscriber. Loading Modrinth App!");
+
+    #[cfg(target_os = "linux")]
+    if let Ok(val) = env::var("XDG_SESSION_TYPE") {
+        if val == "wayland" {
+            env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
+            warn!("The program is running in Wayland environment, NVIDIA explicit sync is disabled.");
+        };
+    };
 
     let mut builder = tauri::Builder::default();
 
