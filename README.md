@@ -1,39 +1,29 @@
-# ![Modrinth Monorepo Cover](/.github/assets/monorepo_cover.png)
+# 三叶启动器
 
-![Issues](https://img.shields.io/github/issues-raw/Modrinth/code?color=c78aff&label=issues&style=for-the-badge)
-![Pull Requests](https://img.shields.io/github/issues-pr-raw/Modrinth/code?color=c78aff&label=PRs&style=for-the-badge)
-![Contributors](https://img.shields.io/github/contributors/Modrinth/code?color=c78aff&label=contributors&style=for-the-badge)
-![Lines](https://img.shields.io/endpoint?url=https://ghloc.vercel.app/api/modrinth/code/badge?style=flat&logoColor=white&color=c78aff&style=for-the-badge)
-![Commit Activity](https://img.shields.io/github/commit-activity/m/Modrinth/code?color=c78aff&label=commits&style=for-the-badge)
-![Last Commit](https://img.shields.io/github/last-commit/Modrinth/code?color=c78aff&label=last%20commit&style=for-the-badge)
+一个基于 Modrinth APP 二次开发的启动器，但加入了完备的联机功能模块和联机平台生态。
 
-## Modrinth Monorepo
+## 开发
 
-Welcome to the Modrinth Monorepo, the primary codebase for the Modrinth web interface and app. It contains ![Lines](https://img.shields.io/endpoint?url=https://ghloc.vercel.app/api/modrinth/olympus/badge?logoColor=white&color=black&label=) lines of code and has ![Contributors](https://img.shields.io/github/contributors/Modrinth/code?color=black&label=) contributors!
-
-If you're not a developer and you've stumbled upon this repository, you can access the web interface on the [Modrinth website](https://modrinth.com) and download the latest release of the app [here](https://modrinth.com/app).
-
-## Development
-
-This repository contains two primary packages. For detailed development information, please refer to their respective READMEs:
+该仓库包含两个主要包。有关详细的开发信息，可见它们各自的 README 文件：
 
 - [Web Interface](apps/frontend/README.md)
 - [Desktop App](apps/app/README.md)
 
-## Contributing
+## 许可
 
-We welcome contributions! Before submitting any contributions, please read our [contributing guidelines](https://docs.modrinth.com/contributing/getting-started/).
+该仓库中的所有包均遵循各自文件夹下的许可证。有关更多信息，请参阅每个包中的 LICENSE 文件。  
 
-If you plan to fork this repository for your own purposes, please review our [copying guidelines](COPYING.md).
+对于我们要二次开发的启动器部分，该部分遵从 modrinth 使用的 [GPLv3](apps\app\LICENSE) 许可。  
+关于 GPLv3：  
 
-## Security
+### 授权部分
 
-If you discover a security vulnerability within our codebase, please follow our [responsible disclosure guidelines](https://modrinth.com/legal/security).
+- 允许自由使用、修改和分发软件  
+- 允许用于商业用途  
+- 允许重新命名（如将项目以新的品牌发布）
 
-## Support
+### 约束部分
 
-If you need help with the Modrinth web interface or app, please visit our [support page](https://support.modrinth.com). For general inquiries, you can also join our [Discord server](https://discord.modrinth.com).
-
-## License
-
-All packages in this repository are licensed under their respective licenses. Refer to the LICENSE file in each package for more information.
+- 二改后的**整个项目**都需要开源，哪怕是完全独立开发的新模块  
+- 必须同样以 GPLv3 许可证开源
+- 必须保留原作者署名权
