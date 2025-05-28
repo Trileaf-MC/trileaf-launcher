@@ -1,7 +1,13 @@
 let
   pkgs = import <nixpkgs> { };
+in
+pkgs.mkShell {
+  packages = with pkgs; [
+    pnpm
+    cargo-tauri
 
-  libraries = with pkgs;[
+    pkg-config
+
     openssl
     gtk3
     cairo
@@ -51,20 +57,4 @@ let
     xorg.libXtst
     xorg.libxcb
   ];
-
-  packages = with pkgs; [
-    pnpm
-    cargo-tauri
-
-    pkg-config
-  ];
-in
-pkgs.mkShell {
-  buildInputs = packages;
-
-  shellHook =
-    ''
-      export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
-      export XDG_DATA_DIRS=${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS
-    '';
 }
