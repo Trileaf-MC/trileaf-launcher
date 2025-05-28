@@ -124,6 +124,7 @@ fn show_window(app: tauri::AppHandle) {
             .unwrap();
         panic!("cannot display application window")
     } else {
+        let _ = win.unmaximize();
         let _ = win.set_focus();
     }
 }
