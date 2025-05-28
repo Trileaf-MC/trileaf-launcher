@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { devtools } from '@vue/devtools'
 import router from '@/routes'
 import App from '@/App.vue'
 import { createPinia } from 'pinia'
@@ -48,5 +49,9 @@ app.use(FloatingVue, {
   },
 })
 app.use(VIntlPlugin)
+
+if (process.env.NODE_ENV === 'development') {
+  devtools.connect()
+}
 
 app.mount('#app')
