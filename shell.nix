@@ -1,13 +1,8 @@
 let
   pkgs = import <nixpkgs> { };
-in
-pkgs.mkShell {
-  packages = with pkgs; [
-    pnpm
-    cargo-tauri
 
-    pkg-config
-
+  runtimeDependencies = with pkgs; [
+    (lib.getLib stdenv.cc.cc)
     openssl
     gtk3
     cairo
@@ -17,7 +12,6 @@ pkgs.mkShell {
     librsvg
     libsoup_2_4
     webkitgtk_4_1
-
     libcxx
     systemd
     libpulseaudio
@@ -43,6 +37,11 @@ pkgs.mkShell {
     libdbusmenu
     libxkbcommon
     zlib
+    libjack2
+    pipewire
+    udev
+    flite
+    libGL
     xorg.libXScrnSaver
     xorg.libXrender
     xorg.libXcursor
@@ -56,5 +55,18 @@ pkgs.mkShell {
     xorg.libxshmfence
     xorg.libXtst
     xorg.libxcb
+    xorg.libXxf86vm
   ];
+in
+pkgs.mkShell {
+  packages = with pkgs; [
+    pnpm
+    cargo-tauri
+
+    pkg-config
+  ] ++ runtimeDependencies;
+
+  shellHook = ''
+    export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath runtimeDependencies}
+  '';
 }
