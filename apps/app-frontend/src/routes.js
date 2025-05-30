@@ -3,6 +3,7 @@ import * as Pages from '@/pages'
 import * as Project from '@/pages/project'
 import * as Instance from '@/pages/instance'
 import * as Library from '@/pages/library'
+import * as Online from '@/pages/online'
 
 /**
  * Configures application routing. Add page to pages/index and then add to route table here.
@@ -132,6 +133,26 @@ export default new createRouter({
             useRootContext: true,
             breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Logs' }],
           },
+        },
+      ],
+    },
+    {
+      path: '/online/lobby',
+      name: 'Online lobby',
+      component: Online.Lobby,
+      meta: {
+        breadcrumb: [{ name: 'Online lobby' }],
+      },
+      children: [
+        {
+          path: '',
+          name: 'Overview',
+          component: Online.Overview,
+        },
+        {
+          path: 'saved',
+          name: 'Saved',
+          component: Online.Saved,
         },
       ],
     },
