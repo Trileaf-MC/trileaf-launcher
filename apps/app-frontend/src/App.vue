@@ -15,6 +15,7 @@ import {
   PlusIcon,
   RestoreIcon,
   RightArrowIcon,
+  ServerIcon,
   SettingsIcon,
   XIcon,
 } from '@modrinth/assets'
@@ -379,6 +380,14 @@ function handleAuxClick(e) {
         :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
       >
         <CompassIcon />
+      </NavButton>
+      <NavButton
+        v-tooltip.right="'Online lobby'"
+        to="/online/lobby"
+        :is-primary="() => route.path.startsWith('/online') && !route.query.i"
+        :is-subpage="(route) => route.path.startsWith('/online/server') && !route.query.i"
+      >
+        <ServerIcon />
       </NavButton>
       <NavButton
         v-tooltip.right="'Library'"
