@@ -56,17 +56,15 @@ import { get as getCreds, login, logout } from '@/helpers/mr_auth.js'
 import { get_user } from '@/helpers/cache.js'
 import AppSettingsModal from '@/components/ui/modal/AppSettingsModal.vue'
 import dayjs from 'dayjs'
-import PromotionWrapper from '@/components/ui/PromotionWrapper.vue'
+// import PromotionWrapper from '@/components/ui/PromotionWrapper.vue'
 import { hide_ads_window, init_ads_window } from '@/helpers/ads.js'
 import FriendsList from '@/components/ui/friends/FriendsList.vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 
 const themeStore = useTheming()
-
-const news = ref([])
-
 const urlModal = ref(null)
+const accounts = ref(null)
 
 const offline = ref(!navigator.onLine)
 window.addEventListener('offline', () => {
@@ -92,6 +90,20 @@ onMounted(async () => {
 
   document.querySelector('body').addEventListener('click', handleClick)
   document.querySelector('body').addEventListener('auxclick', handleAuxClick)
+
+  await invoke('show_window')
+
+  notifications.setNotifs(notificationsWrapper.value)
+
+  error.setErrorModal(errorModal.value)
+
+  install.setIncompatibilityWarningModal(incompatibilityWarningModal)
+  install.setInstallConfirmModal(installConfirmModal)
+  install.setModInstallModal(modInstallModal)
+
+  get_opening_command().then(handleCommand)
+  checkUpdates()
+  fetchCredentials()
 })
 
 onUnmounted(() => {
@@ -170,12 +182,6 @@ async function setupApp() {
   ).then((res) => {
     if (res && res.header && res.body) {
       criticalErrorMessage.value = res
-    }
-  })
-
-  useFetch(`https://modrinth.com/blog/news.json`, 'news', true).then((res) => {
-    if (res && res.articles) {
-      news.value = res.articles
     }
   })
 
@@ -262,33 +268,15 @@ const forceSidebar = computed(
   () => route.path.startsWith('/browse') || route.path.startsWith('/project'),
 )
 const sidebarVisible = computed(() => sidebarToggled.value || forceSidebar.value)
-const showAd = computed(() => !(!sidebarVisible.value || hasPlus.value))
+const showAd = computed(() => false)
 
 watch(
   showAd,
   () => {
-    if (!showAd.value) {
-      hide_ads_window(true)
-    } else {
-      init_ads_window(true)
-    }
+    hide_ads_window(true)
   },
   { immediate: true },
 )
-
-onMounted(() => {
-  invoke('show_window')
-
-  notifications.setNotifs(notificationsWrapper.value)
-
-  error.setErrorModal(errorModal.value)
-
-  install.setIncompatibilityWarningModal(incompatibilityWarningModal)
-  install.setInstallConfirmModal(installConfirmModal)
-  install.setModInstallModal(modInstallModal)
-})
-
-const accounts = ref(null)
 
 command_listener(handleCommand)
 async function handleCommand(e) {
@@ -569,47 +557,8 @@ function handleAuxClick(e) {
               <FriendsList :credentials="credentials" :sign-in="() => signIn()" />
             </suspense>
           </div>
-          <div v-if="news && news.length > 0" class="pt-4 flex flex-col">
-            <h3 class="px-4 text-lg m-0">News</h3>
-            <template v-for="(item, index) in news" :key="`news-${index}`">
-              <a
-                :class="`flex flex-col outline-offset-[-4px] hover:bg-[--brand-gradient-border] focus:bg-[--brand-gradient-border] px-4 transition-colors ${index === 0 ? 'pt-2 pb-4' : 'py-4'}`"
-                :href="item.link"
-                target="_blank"
-                rel="external"
-              >
-                <img
-                  :src="item.thumbnail"
-                  alt="News thumbnail"
-                  aria-hidden="true"
-                  class="w-full aspect-[3/1] object-cover rounded-2xl border-[1px] border-solid border-[--brand-gradient-border]"
-                />
-                <h4 class="mt-2 mb-0 text-sm leading-none text-contrast font-semibold">
-                  {{ item.title }}
-                </h4>
-                <p class="my-1 text-sm text-secondary leading-tight">{{ item.summary }}</p>
-                <p class="text-right text-sm text-secondary opacity-60 leading-tight m-0">
-                  {{ dayjs(item.date).fromNow() }}
-                </p>
-              </a>
-              <hr
-                v-if="index !== news.length - 1"
-                class="h-px my-[-2px] mx-4 border-0 m-0 bg-[--brand-gradient-border]"
-              />
-            </template>
-          </div>
         </div>
       </div>
-      <template v-if="showAd">
-        <a
-          href="https://modrinth.plus?app"
-          class="absolute bottom-[250px] w-full flex justify-center items-center gap-1 px-4 py-3 text-purple font-medium hover:underline z-10"
-          target="_blank"
-        >
-          <ArrowBigUpDashIcon class="text-2xl" /> Upgrade to Modrinth+
-        </a>
-        <PromotionWrapper />
-      </template>
     </div>
   </div>
   <URLConfirmModal ref="urlModal" />
