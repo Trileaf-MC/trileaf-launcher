@@ -63,3 +63,7 @@ apps/frontend/.env
 .astro
 
 .direnv/
+
+# SQLx，Runtime data should not be included in the VCS
+packages/app-lib/.sqlx
+*.db
