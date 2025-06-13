@@ -24,7 +24,14 @@ impl DirectoryInfo {
     // init() is not needed for this function
     pub fn get_initial_settings_dir() -> Option<PathBuf> {
         Self::env_path("THESEUS_CONFIG_DIR")
-            .or_else(|| Some(dirs::data_dir()?.join("ModrinthApp")))
+            .or_else(|| {
+                #[cfg(debug_assertions)]
+                let app_name = "ModrinthAppDev";
+                #[cfg(not(debug_assertions))]
+                let app_name = "ModrinthApp";
+                
+                Some(dirs::data_dir()?.join(app_name))
+            })
     }
 
     /// Get all paths needed for Theseus to operate properly
