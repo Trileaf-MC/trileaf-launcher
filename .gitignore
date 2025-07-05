@@ -66,4 +66,5 @@ apps/frontend/.env
 
 # SQLx，Runtime data should not be included in the VCS
 packages/app-lib/.sqlx
+apps/labrinth/.sqlx
 *.db
