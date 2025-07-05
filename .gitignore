@@ -64,6 +64,13 @@ apps/frontend/.env
 
 .direnv/
 
-# SQLx，Runtime data should not be included in the VCS
+# Database files
+packages/app-lib/theseus.db
+packages/app-lib/app.db
+
+# SQLx query cache
+# app-lib uses online mode in development, so cache is ignored
 packages/app-lib/.sqlx
+# labrinth needs query cache for Docker builds, so it should be committed
+# apps/labrinth/.sqlx  # <- DO NOT ignore this directory
 *.db
