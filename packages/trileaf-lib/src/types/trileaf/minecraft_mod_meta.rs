@@ -13,7 +13,7 @@ pub enum TrileafMinecraftModSource {
     Local,
 }
 
-/// 此枚举用于表示三叶互联 MC 模组的元数据。
+/// 此结构体用于表示三叶互联 MC 模组的元数据。
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TrileafMinecraftModMeta {
     pub source: TrileafMinecraftModSource,
