@@ -3,10 +3,7 @@ use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
 use serde_with::{BoolFromInt, DisplayFromStr, serde_as};
 
-use crate::types::{
-    minecraft::{GameDifficulty, GameMode},
-    minecraft_server_core,
-};
+use crate::types::minecraft::{GameDifficulty, GameMode, server_core};
 
 /// 此结构体用于表示三叶互联 MC 服务器的信息。
 #[serde_as]
@@ -28,6 +25,6 @@ pub struct TrileafMinecraftServerInfo {
     minecraft_version: String,
     #[serde_as(as = "BoolFromInt")]
     is_online_mode: bool,
-    core_type: Option<minecraft_server_core::Type>,
+    core_type: Option<server_core::Type>,
     core_version: String,
 }

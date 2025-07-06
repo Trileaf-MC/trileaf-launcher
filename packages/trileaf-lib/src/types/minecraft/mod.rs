@@ -1,3 +1,6 @@
+pub mod mod_loader;
+pub mod server_core;
+
 use serde::{Deserialize, Serialize};
 
 /// 此枚举用于表示 Minecraft 的游戏模式。
