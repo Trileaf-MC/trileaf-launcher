@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+generic-array = "1.2.0"
+hex = "0.4.3"
+sha2 = "0.11.0-rc.0"
