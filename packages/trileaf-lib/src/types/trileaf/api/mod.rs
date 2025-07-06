@@ -6,6 +6,6 @@ pub mod get_server_mods_meta;
 pub struct ApiResponse<T> {
     pub success: bool,
     pub code: String, // TODO: 计划迁移至 `ErrorCode` 以获得更精确的错误处理
-    pub message: String,
+    pub message: Option<String>,
     pub payload: T,
 }

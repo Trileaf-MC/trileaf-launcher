@@ -25,7 +25,7 @@ pub mod serde_sha512_as_hex {
 
         let array: [u8; 64] = bytes.try_into().map_err(|v: Vec<u8>| {
             Error::custom(format!(
-                "expected a 64-byte array, but got {} bytes",
+                "expected a 64-byte array, but got {} bytes.",
                 v.len()
             ))
         })?;

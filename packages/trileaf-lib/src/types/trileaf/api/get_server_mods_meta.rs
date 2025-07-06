@@ -12,12 +12,14 @@ pub struct RequestPathParams {
 }
 
 /// https://apifox.com/apidoc/shared/0590d539-cd25-46ea-b26f-96ca50ef7aad/api-310438915
+pub type ResponsePayload = Vec<ResponsePayloadItem>;
+/// A item of `ResponsePayload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ResponsePayload {
+pub struct ResponsePayloadItem {
     pub source: TrileafMinecraftModSource,
     pub content: ResponsePayloadContent,
 }
-/// A part of `ResponsePayload`.
+/// A part of `ResponsePayloadItem`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponsePayloadContent {
     #[serde(with = "utils::serde::serde_sha512_as_hex")]
