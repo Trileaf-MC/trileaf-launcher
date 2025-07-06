@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod get_server_mods_meta;
+pub mod get_servers;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
