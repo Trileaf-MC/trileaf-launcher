@@ -1,9 +1,7 @@
-use crate::utils;
+use crate::{types::sha::Sha512OrSha1Hash, utils};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{
-    sha::Sha512Hash, trileaf::minecraft_mod_meta::TrileafMinecraftModSource,
-};
+use crate::types::trileaf::minecraft_mod_meta::TrileafMinecraftModSource;
 
 /// https://apifox.com/apidoc/shared/0590d539-cd25-46ea-b26f-96ca50ef7aad/api-310438915
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,7 +20,7 @@ pub struct ResponsePayloadItem {
 /// A part of `ResponsePayloadItem`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponsePayloadContent {
-    #[serde(with = "utils::serde::serde_sha512_as_hex")]
-    pub hash: Sha512Hash,
+    #[serde(with = "utils::serde::serde_sha512_or_sha1_as_hex")]
+    pub hash: Sha512OrSha1Hash,
     pub version: String,
 }

@@ -1,4 +1,4 @@
-use crate::{types::sha::Sha512Hash, utils};
+use crate::{types::sha::Sha512OrSha1Hash, utils};
 use serde::{Deserialize, Serialize};
 
 use super::api::get_server_mods_meta::ResponsePayloadItem as ApiResponsePayloadItem;
@@ -17,8 +17,8 @@ pub enum TrileafMinecraftModSource {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TrileafMinecraftModMeta {
     pub source: TrileafMinecraftModSource,
-    #[serde(with = "utils::serde::serde_sha512_as_hex")]
-    pub hash: Sha512Hash,
+    #[serde(with = "utils::serde::serde_sha512_or_sha1_as_hex")]
+    pub hash: Sha512OrSha1Hash,
     pub version: String,
 }
 
