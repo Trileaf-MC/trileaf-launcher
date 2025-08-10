@@ -1,7 +1,7 @@
-use crate::auth::{get_user_from_headers, AuthenticationError};
-use crate::database::models::session_item::Session as DBSession;
+use crate::auth::{AuthenticationError, get_user_from_headers};
+use crate::database::models::DBUserId;
+use crate::database::models::session_item::DBSession;
 use crate::database::models::session_item::SessionBuilder;
-use crate::database::models::UserId;
 use crate::database::redis::RedisPool;
 use crate::models::pats::Scopes;
 use crate::models::sessions::Session;
@@ -9,8 +9,8 @@ use crate::queue::session::AuthQueue;
 use crate::routes::ApiError;
 use crate::util::env::parse_var;
 use actix_web::http::header::AUTHORIZATION;
-use actix_web::web::{scope, Data, ServiceConfig};
-use actix_web::{delete, get, post, web, HttpRequest, HttpResponse};
+use actix_web::web::{Data, ServiceConfig, scope};
+use actix_web::{HttpRequest, HttpResponse, delete, get, post, web};
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{Rng, SeedableRng};
@@ -85,7 +85,7 @@ pub async fn get_session_metadata(
 
 pub async fn issue_session(
     req: HttpRequest,
-    user_id: UserId,
+    user_id: DBUserId,
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     redis: &RedisPool,
 ) -> Result<DBSession, AuthenticationError> {
@@ -141,7 +141,7 @@ pub async fn list(
         &**pool,
         &redis,
         &session_queue,
-        Some(&[Scopes::SESSION_READ]),
+        Scopes::SESSION_READ,
     )
     .await?
     .1;
@@ -178,28 +178,28 @@ pub async fn delete(
         &**pool,
         &redis,
         &session_queue,
-        Some(&[Scopes::SESSION_DELETE]),
+        Scopes::SESSION_DELETE,
     )
     .await?
     .1;
 
     let session = DBSession::get(info.into_inner().0, &**pool, &redis).await?;
 
-    if let Some(session) = session {
-        if session.user_id == current_user.id.into() {
-            let mut transaction = pool.begin().await?;
-            DBSession::remove(session.id, &mut transaction).await?;
-            transaction.commit().await?;
-            DBSession::clear_cache(
-                vec![(
-                    Some(session.id),
-                    Some(session.session),
-                    Some(session.user_id),
-                )],
-                &redis,
-            )
-            .await?;
-        }
+    if let Some(session) = session
+        && session.user_id == current_user.id.into()
+    {
+        let mut transaction = pool.begin().await?;
+        DBSession::remove(session.id, &mut transaction).await?;
+        transaction.commit().await?;
+        DBSession::clear_cache(
+            vec![(
+                Some(session.id),
+                Some(session.session),
+                Some(session.user_id),
+            )],
+            &redis,
+        )
+        .await?;
     }
 
     Ok(HttpResponse::NoContent().body(""))
@@ -212,10 +212,15 @@ pub async fn refresh(
     redis: Data<RedisPool>,
     session_queue: Data<AuthQueue>,
 ) -> Result<HttpResponse, ApiError> {
-    let current_user =
-        get_user_from_headers(&req, &**pool, &redis, &session_queue, None)
-            .await?
-            .1;
+    let current_user = get_user_from_headers(
+        &req,
+        &**pool,
+        &redis,
+        &session_queue,
+        Scopes::empty(),
+    )
+    .await?
+    .1;
     let session = req
         .headers()
         .get(AUTHORIZATION)

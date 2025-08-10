@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use crate::{
     event::{
-        emit::{emit_command, emit_warning},
         CommandPayload,
+        emit::{emit_command, emit_warning},
     },
     util::io,
 };
@@ -50,10 +50,10 @@ pub async fn parse_command(
         // We assume anything else is a filepath to an .mrpack file
         let path = PathBuf::from(command_string);
         let path = io::canonicalize(path)?;
-        if let Some(ext) = path.extension() {
-            if ext == "mrpack" {
-                return Ok(CommandPayload::RunMRPack { path });
-            }
+        if let Some(ext) = path.extension()
+            && ext == "mrpack"
+        {
+            return Ok(CommandPayload::RunMRPack { path });
         }
         emit_warning(&format!(
             "Invalid command, unrecognized filetype: {}",

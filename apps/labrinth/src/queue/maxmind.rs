@@ -45,23 +45,23 @@ impl MaxMindIndexer {
 
         if let Ok(entries) = archive.entries() {
             for mut file in entries.flatten() {
-                if let Ok(path) = file.header().path() {
-                    if path.extension().and_then(|x| x.to_str()) == Some("mmdb")
-                    {
-                        let mut buf = Vec::new();
-                        file.read_to_end(&mut buf).unwrap();
+                if let Ok(path) = file.header().path()
+                    && path.extension().and_then(|x| x.to_str()) == Some("mmdb")
+                {
+                    let mut buf = Vec::new();
+                    file.read_to_end(&mut buf).unwrap();
 
-                        let reader =
-                            maxminddb::Reader::from_source(buf).unwrap();
+                    let reader = maxminddb::Reader::from_source(buf).unwrap();
 
-                        return Ok(Some(reader));
-                    }
+                    return Ok(Some(reader));
                 }
             }
         }
 
         if should_panic {
-            panic!("Unable to download maxmind database- did you get a license key?")
+            panic!(
+                "Unable to download maxmind database- did you get a license key?"
+            )
         } else {
             warn!("Unable to download maxmind database.");
 
@@ -73,9 +73,13 @@ impl MaxMindIndexer {
         let maxmind = self.reader.read().await;
 
         if let Some(ref maxmind) = *maxmind {
-            maxmind.lookup::<Country>(ip.into()).ok().and_then(|x| {
-                x.country.and_then(|x| x.iso_code.map(|x| x.to_string()))
-            })
+            maxmind
+                .lookup::<Country>(ip.into())
+                .ok()
+                .flatten()
+                .and_then(|x| {
+                    x.country.and_then(|x| x.iso_code.map(|x| x.to_string()))
+                })
         } else {
             None
         }

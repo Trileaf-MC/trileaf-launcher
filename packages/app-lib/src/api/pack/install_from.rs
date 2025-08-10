@@ -1,10 +1,10 @@
+use crate::State;
 use crate::data::ModLoader;
 use crate::event::emit::{emit_loading, init_loading};
 use crate::event::{LoadingBarId, LoadingBarType};
 use crate::state::{CachedEntry, LinkedData, ProfileInstallStage, SideType};
 use crate::util::fetch::{fetch, fetch_advanced, write_cached_icon};
 use crate::util::io;
-use crate::State;
 
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -357,9 +357,7 @@ pub async fn set_profile_information(
         }
     }
 
-    let game_version = if let Some(game_version) = game_version {
-        game_version
-    } else {
+    let Some(game_version) = game_version else {
         return Err(crate::ErrorKind::InputError(
             "Pack did not specify Minecraft version".to_string(),
         )
@@ -385,21 +383,18 @@ pub async fn set_profile_information(
             .unwrap_or_else(|| backup_name.to_string());
         prof.install_stage = ProfileInstallStage::PackInstalling;
 
-        if let Some(ref project_id) = description.project_id {
-            if let Some(ref version_id) = description.version_id {
-                prof.linked_data = Some(LinkedData {
-                    project_id: project_id.clone(),
-                    version_id: version_id.clone(),
-                    locked: if !ignore_lock {
-                        true
-                    } else {
-                        prof.linked_data
-                            .as_ref()
-                            .map(|x| x.locked)
-                            .unwrap_or(true)
-                    },
-                })
-            }
+        if let Some(ref project_id) = description.project_id
+            && let Some(ref version_id) = description.version_id
+        {
+            prof.linked_data = Some(LinkedData {
+                project_id: project_id.clone(),
+                version_id: version_id.clone(),
+                locked: if !ignore_lock {
+                    true
+                } else {
+                    prof.linked_data.as_ref().is_none_or(|x| x.locked)
+                },
+            })
         }
 
         prof.icon_path = description

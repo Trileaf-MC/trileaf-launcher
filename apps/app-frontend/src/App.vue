@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, provide } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import {
   ArrowBigUpDashIcon,
+  ChangeSkinIcon,
   CompassIcon,
   DownloadIcon,
   HomeIcon,
@@ -17,14 +18,23 @@ import {
   RightArrowIcon,
   ServerIcon,
   SettingsIcon,
+  WorldIcon,
   XIcon,
+  NewspaperIcon,
 } from '@modrinth/assets'
-import { Avatar, Button, ButtonStyled, Notifications, OverflowMenu } from '@modrinth/ui'
+import {
+  Avatar,
+  Button,
+  ButtonStyled,
+  Notifications,
+  OverflowMenu,
+  NewsArticleCard,
+} from '@modrinth/ui'
 import { useLoading, useTheming } from '@/store/state'
 import ModrinthAppLogo from '@/assets/modrinth_app.svg?component'
 import AccountsCard from '@/components/ui/AccountsCard.vue'
 import InstanceCreationModal from '@/components/ui/InstanceCreationModal.vue'
-import { get } from '@/helpers/settings'
+import { get } from '@/helpers/settings.ts'
 import Breadcrumbs from '@/components/ui/Breadcrumbs.vue'
 import RunningAppBar from '@/components/ui/RunningAppBar.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
@@ -52,19 +62,22 @@ import { renderString } from '@modrinth/utils'
 import { useFetch } from '@/helpers/fetch.js'
 import { check } from '@tauri-apps/plugin-updater'
 import NavButton from '@/components/ui/NavButton.vue'
-import { get as getCreds, login, logout } from '@/helpers/mr_auth.js'
+import { cancelLogin, get as getCreds, login, logout } from '@/helpers/mr_auth.js'
 import { get_user } from '@/helpers/cache.js'
 import AppSettingsModal from '@/components/ui/modal/AppSettingsModal.vue'
+import AuthGrantFlowWaitModal from '@/components/ui/modal/AuthGrantFlowWaitModal.vue'
+import PromotionWrapper from '@/components/ui/PromotionWrapper.vue'
 import dayjs from 'dayjs'
 // import PromotionWrapper from '@/components/ui/PromotionWrapper.vue'
 import { hide_ads_window, init_ads_window } from '@/helpers/ads.js'
 import FriendsList from '@/components/ui/friends/FriendsList.vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
+import { get_available_capes, get_available_skins } from './helpers/skins'
+import { generateSkinPreviews } from './helpers/rendering/batch-skin-renderer'
 
 const themeStore = useTheming()
 const urlModal = ref(null)
-const accounts = ref(null)
 
 const offline = ref(!navigator.onLine)
 window.addEventListener('offline', () => {
@@ -188,6 +201,14 @@ async function setupApp() {
   get_opening_command().then(handleCommand)
   checkUpdates()
   fetchCredentials()
+
+  try {
+    const skins = (await get_available_skins()) ?? []
+    const capes = (await get_available_capes()) ?? []
+    generateSkinPreviews(skins, capes)
+  } catch (error) {
+    console.warn('Failed to generate skin previews in app setup.', error)
+  }
 }
 
 const stateFailed = ref(false)
@@ -232,6 +253,8 @@ const incompatibilityWarningModal = ref()
 
 const credentials = ref()
 
+const modrinthLoginFlowWaitModal = ref()
+
 async function fetchCredentials() {
   const creds = await getCreds().catch(handleError)
   if (creds && creds.user_id) {
@@ -241,8 +264,24 @@ async function fetchCredentials() {
 }
 
 async function signIn() {
-  await login().catch(handleError)
-  await fetchCredentials()
+  modrinthLoginFlowWaitModal.value.show()
+
+  try {
+    await login()
+    await fetchCredentials()
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      typeof error['message'] === 'string' &&
+      error.message.includes('Login canceled')
+    ) {
+      // Not really an error due to being a result of user interaction, show nothing
+    } else {
+      handleError(error)
+    }
+  } finally {
+    modrinthLoginFlowWaitModal.value.hide()
+  }
 }
 
 async function logOut() {
@@ -277,6 +316,21 @@ watch(
   },
   { immediate: true },
 )
+
+onMounted(() => {
+  invoke('show_window')
+
+  notifications.setNotifs(notificationsWrapper.value)
+
+  error.setErrorModal(errorModal.value)
+
+  install.setIncompatibilityWarningModal(incompatibilityWarningModal)
+  install.setInstallConfirmModal(installConfirmModal)
+  install.setModInstallModal(modInstallModal)
+})
+
+const accounts = ref(null)
+provide('accountsCard', accounts)
 
 command_listener(handleCommand)
 async function handleCommand(e) {
@@ -348,9 +402,12 @@ function handleAuxClick(e) {
 <template>
   <SplashScreen v-if="!stateFailed" ref="splashScreen" data-tauri-drag-region />
   <div id="teleports"></div>
-  <div v-if="stateInitialized" class="app-grid-layout relative">
+  <div v-if="stateInitialized" class="app-grid-layout experimental-styles-within relative">
     <Suspense>
       <AppSettingsModal ref="settingsModal" />
+    </Suspense>
+    <Suspense>
+      <AuthGrantFlowWaitModal ref="modrinthLoginFlowWaitModal" @flow-cancel="cancelLogin" />
     </Suspense>
     <Suspense>
       <InstanceCreationModal ref="installationModal" />
@@ -361,6 +418,9 @@ function handleAuxClick(e) {
       <NavButton v-tooltip.right="'Home'" to="/">
         <HomeIcon />
       </NavButton>
+      <NavButton v-if="themeStore.featureFlags.worlds_tab" v-tooltip.right="'Worlds'" to="/worlds">
+        <WorldIcon />
+      </NavButton>
       <NavButton
         v-tooltip.right="'Discover content'"
         to="/browse/modpack"
@@ -368,6 +428,9 @@ function handleAuxClick(e) {
         :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
       >
         <CompassIcon />
+      </NavButton>
+      <NavButton v-tooltip.right="'Skins (Beta)'" to="/skins">
+        <ChangeSkinIcon />
       </NavButton>
       <NavButton
         v-tooltip.right="'Online lobby'"
@@ -437,13 +500,13 @@ function handleAuxClick(e) {
         <ModrinthAppLogo class="h-full w-auto text-contrast pointer-events-none" />
         <div class="flex items-center gap-1 ml-3">
           <button
-            class="cursor-pointer p-0 m-0 border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
+            class="cursor-pointer p-0 m-0 text-contrast border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
             @click="router.back()"
           >
             <LeftArrowIcon />
           </button>
           <button
-            class="cursor-pointer p-0 m-0 border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
+            class="cursor-pointer p-0 m-0 text-contrast border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
             @click="router.forward()"
           >
             <RightArrowIcon />
@@ -470,7 +533,7 @@ function handleAuxClick(e) {
             <RunningAppBar />
           </Suspense>
         </div>
-        <section v-if="!nativeDecorations" class="window-controls">
+        <section v-if="!nativeDecorations" class="window-controls" data-tauri-drag-region-exclude>
           <Button class="titlebar-button" icon-only @click="() => getCurrentWindow().minimize()">
             <MinimizeIcon />
           </Button>
@@ -660,6 +723,14 @@ function handleAuxClick(e) {
 
 .app-grid-statusbar {
   grid-area: status;
+}
+
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+
+[data-tauri-drag-region-exclude] {
+  -webkit-app-region: no-drag;
 }
 
 .app-contents {

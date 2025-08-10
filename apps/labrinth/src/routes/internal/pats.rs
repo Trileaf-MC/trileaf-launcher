@@ -6,12 +6,12 @@ use crate::routes::ApiError;
 
 use crate::database::redis::RedisPool;
 use actix_web::web::{self, Data};
-use actix_web::{delete, get, patch, post, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, delete, get, patch, post};
 use chrono::{DateTime, Utc};
-use rand::distributions::Alphanumeric;
 use rand::Rng;
-use rand_chacha::rand_core::SeedableRng;
+use rand::distributions::Alphanumeric;
 use rand_chacha::ChaCha20Rng;
+use rand_chacha::rand_core::SeedableRng;
 
 use crate::models::pats::{PersonalAccessToken, Scopes};
 use crate::queue::session::AuthQueue;
@@ -39,19 +39,19 @@ pub async fn get_pats(
         &**pool,
         &redis,
         &session_queue,
-        Some(&[Scopes::PAT_READ]),
+        Scopes::PAT_READ,
     )
     .await?
     .1;
 
     let pat_ids =
-        database::models::pat_item::PersonalAccessToken::get_user_pats(
+        database::models::pat_item::DBPersonalAccessToken::get_user_pats(
             user.id.into(),
             &**pool,
             &redis,
         )
         .await?;
-    let pats = database::models::pat_item::PersonalAccessToken::get_many_ids(
+    let pats = database::models::pat_item::DBPersonalAccessToken::get_many_ids(
         &pat_ids, &**pool, &redis,
     )
     .await?;
@@ -99,7 +99,7 @@ pub async fn create_pat(
         &**pool,
         &redis,
         &session_queue,
-        Some(&[Scopes::PAT_CREATE]),
+        Scopes::PAT_CREATE,
     )
     .await?
     .1;
@@ -113,10 +113,10 @@ pub async fn create_pat(
         .take(60)
         .map(char::from)
         .collect::<String>();
-    let token = format!("mrp_{}", token);
+    let token = format!("mrp_{token}");
 
     let name = info.name.clone();
-    database::models::pat_item::PersonalAccessToken {
+    database::models::pat_item::DBPersonalAccessToken {
         id,
         name: name.clone(),
         access_token: token.clone(),
@@ -130,7 +130,7 @@ pub async fn create_pat(
     .await?;
 
     transaction.commit().await?;
-    database::models::pat_item::PersonalAccessToken::clear_cache(
+    database::models::pat_item::DBPersonalAccessToken::clear_cache(
         vec![(None, None, Some(user.id.into()))],
         &redis,
     )
@@ -174,80 +174,80 @@ pub async fn edit_pat(
         &**pool,
         &redis,
         &session_queue,
-        Some(&[Scopes::PAT_WRITE]),
+        Scopes::PAT_WRITE,
     )
     .await?
     .1;
 
     let id = id.into_inner().0;
-    let pat = database::models::pat_item::PersonalAccessToken::get(
+    let pat = database::models::pat_item::DBPersonalAccessToken::get(
         &id, &**pool, &redis,
     )
     .await?;
 
-    if let Some(pat) = pat {
-        if pat.user_id == user.id.into() {
-            let mut transaction = pool.begin().await?;
+    if let Some(pat) = pat
+        && pat.user_id == user.id.into()
+    {
+        let mut transaction = pool.begin().await?;
 
-            if let Some(scopes) = &info.scopes {
-                if scopes.is_restricted() {
-                    return Err(ApiError::InvalidInput(
-                        "Invalid scopes requested!".to_string(),
-                    ));
-                }
+        if let Some(scopes) = &info.scopes {
+            if scopes.is_restricted() {
+                return Err(ApiError::InvalidInput(
+                    "Invalid scopes requested!".to_string(),
+                ));
+            }
 
-                sqlx::query!(
-                    "
+            sqlx::query!(
+                "
                     UPDATE pats
                     SET scopes = $1
                     WHERE id = $2
                     ",
-                    scopes.bits() as i64,
-                    pat.id.0
-                )
-                .execute(&mut *transaction)
-                .await?;
-            }
-            if let Some(name) = &info.name {
-                sqlx::query!(
-                    "
+                scopes.bits() as i64,
+                pat.id.0
+            )
+            .execute(&mut *transaction)
+            .await?;
+        }
+        if let Some(name) = &info.name {
+            sqlx::query!(
+                "
                     UPDATE pats
                     SET name = $1
                     WHERE id = $2
                     ",
-                    name,
-                    pat.id.0
-                )
-                .execute(&mut *transaction)
-                .await?;
+                name,
+                pat.id.0
+            )
+            .execute(&mut *transaction)
+            .await?;
+        }
+        if let Some(expires) = &info.expires {
+            if expires < &Utc::now() {
+                return Err(ApiError::InvalidInput(
+                    "Expire date must be in the future!".to_string(),
+                ));
             }
-            if let Some(expires) = &info.expires {
-                if expires < &Utc::now() {
-                    return Err(ApiError::InvalidInput(
-                        "Expire date must be in the future!".to_string(),
-                    ));
-                }
 
-                sqlx::query!(
-                    "
+            sqlx::query!(
+                "
                     UPDATE pats
                     SET expires = $1
                     WHERE id = $2
                     ",
-                    expires,
-                    pat.id.0
-                )
-                .execute(&mut *transaction)
-                .await?;
-            }
-
-            transaction.commit().await?;
-            database::models::pat_item::PersonalAccessToken::clear_cache(
-                vec![(Some(pat.id), Some(pat.access_token), Some(pat.user_id))],
-                &redis,
+                expires,
+                pat.id.0
             )
+            .execute(&mut *transaction)
             .await?;
         }
+
+        transaction.commit().await?;
+        database::models::pat_item::DBPersonalAccessToken::clear_cache(
+            vec![(Some(pat.id), Some(pat.access_token), Some(pat.user_id))],
+            &redis,
+        )
+        .await?;
     }
 
     Ok(HttpResponse::NoContent().finish())
@@ -266,31 +266,31 @@ pub async fn delete_pat(
         &**pool,
         &redis,
         &session_queue,
-        Some(&[Scopes::PAT_DELETE]),
+        Scopes::PAT_DELETE,
     )
     .await?
     .1;
     let id = id.into_inner().0;
-    let pat = database::models::pat_item::PersonalAccessToken::get(
+    let pat = database::models::pat_item::DBPersonalAccessToken::get(
         &id, &**pool, &redis,
     )
     .await?;
 
-    if let Some(pat) = pat {
-        if pat.user_id == user.id.into() {
-            let mut transaction = pool.begin().await?;
-            database::models::pat_item::PersonalAccessToken::remove(
-                pat.id,
-                &mut transaction,
-            )
-            .await?;
-            transaction.commit().await?;
-            database::models::pat_item::PersonalAccessToken::clear_cache(
-                vec![(Some(pat.id), Some(pat.access_token), Some(pat.user_id))],
-                &redis,
-            )
-            .await?;
-        }
+    if let Some(pat) = pat
+        && pat.user_id == user.id.into()
+    {
+        let mut transaction = pool.begin().await?;
+        database::models::pat_item::DBPersonalAccessToken::remove(
+            pat.id,
+            &mut transaction,
+        )
+        .await?;
+        transaction.commit().await?;
+        database::models::pat_item::DBPersonalAccessToken::clear_cache(
+            vec![(Some(pat.id), Some(pat.access_token), Some(pat.user_id))],
+            &redis,
+        )
+        .await?;
     }
 
     Ok(HttpResponse::NoContent().finish())

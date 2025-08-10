@@ -2,7 +2,10 @@
   <div class="static w-full grid-cols-1 md:relative md:flex">
     <div class="static h-full flex-col pb-4 md:flex md:pb-0 md:pr-4">
       <div class="z-10 flex select-none flex-col gap-2 rounded-2xl bg-bg-raised p-4 md:w-[16rem]">
-        <div v-for="link in navLinks" :key="link.label">
+        <div
+          v-for="link in navLinks.filter((x) => x.shown === undefined || x.shown)"
+          :key="link.label"
+        >
           <NuxtLink
             :to="link.href"
             class="flex items-center gap-2 rounded-xl p-2 hover:bg-button-bg"
@@ -21,7 +24,12 @@
     </div>
 
     <div class="h-full w-full">
-      <NuxtPage :route="props.route" :server="props.server" @reinstall="onReinstall" />
+      <NuxtPage
+        :route="route"
+        :server="server"
+        :backup-in-progress="backupInProgress"
+        @reinstall="onReinstall"
+      />
     </div>
   </div>
 </template>
@@ -29,14 +37,16 @@
 <script setup lang="ts">
 import { RightArrowIcon } from "@modrinth/assets";
 import type { RouteLocationNormalized } from "vue-router";
-import type { Server } from "~/composables/pyroServers";
+import type { BackupInProgressReason } from "~/pages/servers/manage/[id].vue";
+import { ModrinthServer } from "~/composables/servers/modrinth-servers.ts";
 
 const emit = defineEmits(["reinstall"]);
 
-const props = defineProps<{
-  navLinks: { label: string; href: string; icon: Component; external?: boolean }[];
+defineProps<{
+  navLinks: { label: string; href: string; icon: Component; external?: boolean; shown?: boolean }[];
   route: RouteLocationNormalized;
-  server: Server<["general", "content", "backups", "network", "startup", "ws", "fs"]>;
+  server: ModrinthServer;
+  backupInProgress?: BackupInProgressReason;
 }>();
 
 const onReinstall = (...args: any[]) => {

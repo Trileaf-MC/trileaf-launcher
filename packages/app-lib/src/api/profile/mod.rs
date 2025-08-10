@@ -1,9 +1,9 @@
 //! Theseus profile management interface
 
+use crate::event::LoadingBarType;
 use crate::event::emit::{
     emit_loading, init_loading, loading_try_for_each_concurrent,
 };
-use crate::event::LoadingBarType;
 use crate::pack::install_from::{
     EnvType, PackDependency, PackFile, PackFileHash, PackFormat,
 };
@@ -12,10 +12,10 @@ use crate::state::{
     ProfileFile, ProfileInstallStage, ProjectType, SideType,
 };
 
-use crate::event::{emit::emit_profile, ProfilePayloadType};
+use crate::event::{ProfilePayloadType, emit::emit_profile};
 use crate::util::fetch;
 use crate::util::io::{self, IOError};
-pub use crate::{state::Profile, State};
+pub use crate::{State, state::Profile};
 use async_zip::tokio::write::ZipFileWriter;
 use async_zip::{Compression, ZipEntryBuilder};
 use serde_json::json;
@@ -23,6 +23,7 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 
 use crate::data::Settings;
+use crate::server_address::ServerAddress;
 use dashmap::DashMap;
 use std::iter::FromIterator;
 use std::{
@@ -35,6 +36,13 @@ use tokio::{fs::File, process::Command, sync::RwLock};
 
 pub mod create;
 pub mod update;
+
+#[derive(Debug, Clone)]
+pub enum QuickPlayType {
+    None,
+    Singleplayer(String),
+    Server(ServerAddress),
+}
 
 /// Remove a profile
 #[tracing::instrument]
@@ -329,28 +337,26 @@ pub async fn update_project(
             )
             .await?
             .remove(project_path)
+            && let Some(update_version) = &file.update_version_id
         {
-            if let Some(update_version) = &file.update_version_id {
-                let path = Profile::add_project_version(
-                    profile_path,
-                    update_version,
-                    &state.pool,
-                    &state.fetch_semaphore,
-                    &state.io_semaphore,
-                )
-                .await?;
+            let path = Profile::add_project_version(
+                profile_path,
+                update_version,
+                &state.pool,
+                &state.fetch_semaphore,
+                &state.io_semaphore,
+            )
+            .await?;
 
-                if path != project_path {
-                    Profile::remove_project(profile_path, project_path).await?;
-                }
-
-                if !skip_send_event.unwrap_or(false) {
-                    emit_profile(profile_path, ProfilePayloadType::Edited)
-                        .await?;
-                }
-
-                return Ok(path);
+            if path != project_path {
+                Profile::remove_project(profile_path, project_path).await?;
             }
+
+            if !skip_send_event.unwrap_or(false) {
+                emit_profile(profile_path, ProfilePayloadType::Edited).await?;
+            }
+
+            return Ok(path);
         }
 
         Err(crate::ErrorKind::InputError(
@@ -463,8 +469,7 @@ pub async fn export_mrpack(
         state.io_semaphore.0.acquire().await?;
     let profile = get(profile_path).await?.ok_or_else(|| {
         crate::ErrorKind::OtherError(format!(
-            "Tried to export a nonexistent or unloaded profile at path {}!",
-            profile_path
+            "Tried to export a nonexistent or unloaded profile at path {profile_path}!"
         ))
     })?;
 
@@ -472,10 +477,10 @@ pub async fn export_mrpack(
     let included_export_candidates = included_export_candidates
         .into_iter()
         .filter(|x| {
-            if let Some(f) = PathBuf::from(x).file_name() {
-                if f.to_string_lossy().starts_with(".DS_Store") {
-                    return false;
-                }
+            if let Some(f) = PathBuf::from(x).file_name()
+                && f.to_string_lossy().starts_with(".DS_Store")
+            {
+                return false;
             }
             true
         })
@@ -580,7 +585,7 @@ pub async fn get_pack_export_candidates(
         .await
         .map_err(|e| IOError::with_path(e, &profile_base_dir))?
     {
-        let path: PathBuf = entry.path();
+        let path = entry.path();
         if path.is_dir() {
             // Two layers of files/folders if its a folder
             let mut read_dir = io::read_dir(&path).await?;
@@ -589,10 +594,10 @@ pub async fn get_pack_export_candidates(
                 .await
                 .map_err(|e| IOError::with_path(e, &profile_base_dir))?
             {
-                let path: PathBuf = entry.path();
-
-                path_list
-                    .push(pack_get_relative_path(&profile_base_dir, &path)?);
+                path_list.push(pack_get_relative_path(
+                    &profile_base_dir,
+                    &entry.path(),
+                )?);
             }
         } else {
             // One layer of files/folders if its a file
@@ -610,8 +615,7 @@ fn pack_get_relative_path(
         .strip_prefix(profile_path)
         .map_err(|_| {
             crate::ErrorKind::FSError(format!(
-                "Path {path:?} does not correspond to a profile",
-                path = path
+                "Path {path:?} does not correspond to a profile"
             ))
         })?
         .components()
@@ -623,30 +627,31 @@ fn pack_get_relative_path(
 /// Run Minecraft using a profile and the default credentials, logged in credentials,
 /// failing with an error if no credentials are available
 #[tracing::instrument]
-pub async fn run(path: &str) -> crate::Result<ProcessMetadata> {
+pub async fn run(
+    path: &str,
+    quick_play_type: QuickPlayType,
+) -> crate::Result<ProcessMetadata> {
     let state = State::get().await?;
 
     let default_account = Credentials::get_default_credential(&state.pool)
         .await?
         .ok_or_else(|| crate::ErrorKind::NoCredentialsError.as_error())?;
 
-    run_credentials(path, &default_account).await
+    run_credentials(path, &default_account, quick_play_type).await
 }
 
 /// Run Minecraft using a profile, and credentials for authentication
-/// Returns Arc pointer to RwLock to Child
 #[tracing::instrument(skip(credentials))]
-
-pub async fn run_credentials(
+async fn run_credentials(
     path: &str,
     credentials: &Credentials,
+    quick_play_type: QuickPlayType,
 ) -> crate::Result<ProcessMetadata> {
     let state = State::get().await?;
     let settings = Settings::get(&state.pool).await?;
     let profile = get(path).await?.ok_or_else(|| {
         crate::ErrorKind::OtherError(format!(
-            "Tried to run a nonexistent or unloaded profile at path {}!",
-            path
+            "Tried to run a nonexistent or unloaded profile at path {path}!"
         ))
     })?;
 
@@ -654,14 +659,15 @@ pub async fn run_credentials(
         .hooks
         .pre_launch
         .as_ref()
-        .or(settings.hooks.pre_launch.as_ref());
+        .or(settings.hooks.pre_launch.as_ref())
+        .filter(|hook_command| !hook_command.is_empty());
     if let Some(hook) = pre_launch_hooks {
         // TODO: hook parameters
         let mut cmd = hook.split(' ');
         if let Some(command) = cmd.next() {
             let full_path = get_full_path(&profile.path).await?;
             let result = Command::new(command)
-                .args(cmd.collect::<Vec<&str>>())
+                .args(cmd)
                 .current_dir(&full_path)
                 .spawn()
                 .map_err(|e| IOError::with_path(e, &full_path))?
@@ -684,7 +690,12 @@ pub async fn run_credentials(
         .clone()
         .unwrap_or(settings.extra_launch_args);
 
-    let wrapper = profile.hooks.wrapper.clone().or(settings.hooks.wrapper);
+    let wrapper = profile
+        .hooks
+        .wrapper
+        .clone()
+        .or(settings.hooks.wrapper)
+        .filter(|hook_command| !hook_command.is_empty());
 
     let memory = profile.memory.unwrap_or(settings.memory);
     let resolution =
@@ -696,8 +707,12 @@ pub async fn run_credentials(
         .unwrap_or(settings.custom_env_vars);
 
     // Post post exit hooks
-    let post_exit_hook =
-        profile.hooks.post_exit.clone().or(settings.hooks.post_exit);
+    let post_exit_hook = profile
+        .hooks
+        .post_exit
+        .clone()
+        .or(settings.hooks.post_exit)
+        .filter(|hook_command| !hook_command.is_empty());
 
     // Any options.txt settings that we want set, add here
     let mut mc_set_options: Vec<(String, String)> = vec![];
@@ -719,6 +734,7 @@ pub async fn run_credentials(
         credentials,
         post_exit_hook,
         &profile,
+        quick_play_type,
     )
     .await
 }
@@ -741,14 +757,13 @@ pub async fn try_update_playtime(path: &str) -> crate::Result<()> {
 
     let profile = get(path).await?.ok_or_else(|| {
         crate::ErrorKind::OtherError(format!(
-            "Tried to update playtime for a nonexistent or unloaded profile at path {}!",
-            path
+            "Tried to update playtime for a nonexistent or unloaded profile at path {path}!"
         ))
     })?;
     let updated_recent_playtime = profile.recent_time_played;
 
     let res = if updated_recent_playtime > 0 {
-        // Create update struct to send to Labrinth
+        // Create update struct to send to labrinth
         let modrinth_pack_version_id =
             profile.linked_data.as_ref().map(|l| l.version_id.clone());
         let playtime_update_json = json!({
@@ -823,7 +838,7 @@ pub async fn create_mrpack_json(
             return Err(crate::ErrorKind::OtherError(
                 "Loader version mismatch".to_string(),
             )
-            .into())
+            .into());
         }
     };
     dependencies
@@ -864,15 +879,12 @@ pub async fn create_mrpack_json(
                 env.insert(EnvType::Client, SideType::Required);
                 env.insert(EnvType::Server, SideType::Required);
 
-                let primary_file =
-                    if let Some(primary_file) = version.files.first() {
-                        primary_file
-                    } else {
-                        return Some(Err(crate::ErrorKind::OtherError(
-                            format!("No primary file found for mod at: {path}"),
-                        )
-                        .as_error()));
-                    };
+                let Some(primary_file) = version.files.first() else {
+                    return Some(Err(crate::ErrorKind::OtherError(format!(
+                        "No primary file found for mod at: {path}"
+                    ))
+                    .as_error()));
+                };
 
                 let file_size = primary_file.size;
                 let downloads = vec![primary_file.url.clone()];
