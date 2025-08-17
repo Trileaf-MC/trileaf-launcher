@@ -71,6 +71,7 @@ import dayjs from 'dayjs'
 // import PromotionWrapper from '@/components/ui/PromotionWrapper.vue'
 import { hide_ads_window, init_ads_window } from '@/helpers/ads.js'
 import FriendsList from '@/components/ui/friends/FriendsList.vue'
+import CollapsibleFriendsSidebar from '@/components/ui/friends/CollapsibleFriendsSidebar.vue'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import { get_available_capes, get_available_skins } from './helpers/skins'
@@ -211,19 +212,34 @@ async function setupApp() {
   }
 }
 
+// 提前初始化全局 loading，以便启动阶段可用
+const loading = useLoading()
+loading.setEnabled(false)
+
 const stateFailed = ref(false)
+// 启动阶段开启全局加载，驱动开屏进度条
+loading.startLoading()
 initialize_state()
   .then(() => {
-    setupApp().catch((err) => {
-      stateFailed.value = true
-      console.error(err)
-      error.showError(err, null, false, 'state_init')
-    })
+    setupApp()
+      .then(() => {
+        // 初始化完成，停止加载
+        loading.stopLoading()
+      })
+      .catch((err) => {
+        stateFailed.value = true
+        console.error(err)
+        error.showError(err, null, false, 'state_init')
+        // 出错也停止加载，避免卡在开屏
+        loading.stopLoading()
+      })
   })
   .catch((err) => {
     stateFailed.value = true
     console.error('Failed to initialize app', err)
     error.showError(err, null, false, 'state_init')
+    // 初始化失败时也停止加载
+    loading.stopLoading()
   })
 
 const handleClose = async () => {
@@ -236,9 +252,6 @@ router.afterEach((to, from, failure) => {
   trackEvent('PageView', { path: to.path, fromPath: from.path, failed: failure })
 })
 const route = useRoute()
-
-const loading = useLoading()
-loading.setEnabled(false)
 
 const notifications = useNotifications()
 const notificationsWrapper = ref()
@@ -297,16 +310,33 @@ const hasPlus = computed(
     (credentials.value.user.badges & MIDAS_BITFLAG) === MIDAS_BITFLAG,
 )
 
-const sidebarToggled = ref(true)
+// 侧边栏宽度管理
+const sidebarWidth = ref(64) // 默认折叠状态宽度64px
 
-themeStore.$subscribe(() => {
-  sidebarToggled.value = !themeStore.toggleSidebar
+function handleSidebarToggle(isExpanded) {
+  sidebarWidth.value = isExpanded ? 320 : 64 // 展开320px，折叠64px
+  console.debug('[App] sidebar-toggle received, isExpanded=', isExpanded, '=> sidebarWidth=', sidebarWidth.value)
+}
+
+// 在“发现模组/项目”页面隐藏好友侧边栏，只显示筛选器
+const showFriendsSidebar = computed(() => {
+  const path = route.path
+  return !(path.startsWith('/browse') || path.startsWith('/project'))
 })
 
-const forceSidebar = computed(
-  () => route.path.startsWith('/browse') || route.path.startsWith('/project'),
-)
-const sidebarVisible = computed(() => sidebarToggled.value || forceSidebar.value)
+// 仅在“发现模组/项目”页面渲染筛选器 Teleport 目标
+const showFilterSidebarTarget = computed(() => {
+  const path = route.path
+  return path.startsWith('/browse') || path.startsWith('/project')
+})
+
+// 右侧需要预留的宽度（好友侧栏或筛选器）
+const rightReservedWidth = computed(() => {
+  if (showFriendsSidebar.value) return sidebarWidth.value
+  if (showFilterSidebarTarget.value) return 320
+  return 0
+})
+
 const showAd = computed(() => false)
 
 watch(
@@ -412,55 +442,33 @@ function handleAuxClick(e) {
     <Suspense>
       <InstanceCreationModal ref="installationModal" />
     </Suspense>
-    <div
-      class="app-grid-navbar bg-bg-raised flex flex-col p-[0.5rem] pt-0 gap-[0.5rem] w-[--left-bar-width]"
-    >
+    <div class="app-grid-navbar bg-bg-raised flex flex-col p-[0.5rem] pt-0 gap-[0.5rem] w-[--left-bar-width]">
       <NavButton v-tooltip.right="'Home'" to="/">
         <HomeIcon />
       </NavButton>
       <NavButton v-if="themeStore.featureFlags.worlds_tab" v-tooltip.right="'Worlds'" to="/worlds">
         <WorldIcon />
       </NavButton>
-      <NavButton
-        v-tooltip.right="'Discover content'"
-        to="/browse/modpack"
+      <NavButton v-tooltip.right="'Discover content'" to="/browse/modpack"
         :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
-        :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
-      >
+        :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i">
         <CompassIcon />
       </NavButton>
       <NavButton v-tooltip.right="'Skins (Beta)'" to="/skins">
         <ChangeSkinIcon />
       </NavButton>
-      <NavButton
-        v-tooltip.right="'Online lobby'"
-        to="/online/lobby"
-        :is-primary="() => route.path.startsWith('/online') && !route.query.i"
-        :is-subpage="(route) => route.path.startsWith('/online/server') && !route.query.i"
-      >
-        <ServerIcon />
-      </NavButton>
-      <NavButton
-        v-tooltip.right="'Library'"
-        to="/library"
-        :is-subpage="
-          () =>
-            route.path.startsWith('/instance') ||
-            ((route.path.startsWith('/browse') || route.path.startsWith('/project')) &&
-              route.query.i)
-        "
-      >
+      <NavButton v-tooltip.right="'Library'" to="/library" :is-subpage="() =>
+        route.path.startsWith('/instance') ||
+        ((route.path.startsWith('/browse') || route.path.startsWith('/project')) &&
+          route.query.i)
+        ">
         <LibraryIcon />
       </NavButton>
       <div class="h-px w-6 mx-auto my-2 bg-button-bg"></div>
       <suspense>
         <QuickInstanceSwitcher />
       </suspense>
-      <NavButton
-        v-tooltip.right="'Create new instance'"
-        :to="() => $refs.installationModal.show()"
-        :disabled="offline"
-      >
+      <NavButton v-tooltip.right="'Create new instance'" :to="() => $refs.installationModal.show()" :disabled="offline">
         <PlusIcon />
       </NavButton>
       <div class="flex flex-grow"></div>
@@ -471,23 +479,17 @@ function handleAuxClick(e) {
         <SettingsIcon />
       </NavButton>
       <ButtonStyled v-if="credentials" type="transparent" circular>
-        <OverflowMenu
-          :options="[
-            {
-              id: 'sign-out',
-              action: () => logOut(),
-              color: 'danger',
-            },
-          ]"
-          direction="left"
-        >
-          <Avatar
-            :src="credentials.user.avatar_url"
-            :alt="credentials.user.username"
-            size="32px"
-            circle
-          />
-          <template #sign-out> <LogOutIcon /> Sign out </template>
+        <OverflowMenu :options="[
+          {
+            id: 'sign-out',
+            action: () => logOut(),
+            color: 'danger',
+          },
+        ]" direction="left">
+          <Avatar :src="credentials.user.avatar_url" :alt="credentials.user.username" size="32px" circle />
+          <template #sign-out>
+            <LogOutIcon /> Sign out
+          </template>
         </OverflowMenu>
       </ButtonStyled>
       <NavButton v-else v-tooltip.right="'Sign in'" :to="() => signIn()">
@@ -501,33 +503,18 @@ function handleAuxClick(e) {
         <div class="flex items-center gap-1 ml-3">
           <button
             class="cursor-pointer p-0 m-0 text-contrast border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
-            @click="router.back()"
-          >
+            @click="router.back()">
             <LeftArrowIcon />
           </button>
           <button
             class="cursor-pointer p-0 m-0 text-contrast border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
-            @click="router.forward()"
-          >
+            @click="router.forward()">
             <RightArrowIcon />
           </button>
         </div>
         <Breadcrumbs class="pt-[2px]" />
       </div>
       <section class="flex ml-auto items-center">
-        <ButtonStyled
-          v-if="!forceSidebar && themeStore.toggleSidebar"
-          :type="sidebarToggled ? 'standard' : 'transparent'"
-          circular
-        >
-          <button
-            class="mr-3 transition-transform"
-            :class="{ 'rotate-180': !sidebarToggled }"
-            @click="sidebarToggled = !sidebarToggled"
-          >
-            <RightArrowIcon />
-          </button>
-        </ButtonStyled>
         <div class="flex mr-3">
           <Suspense>
             <RunningAppBar />
@@ -537,11 +524,7 @@ function handleAuxClick(e) {
           <Button class="titlebar-button" icon-only @click="() => getCurrentWindow().minimize()">
             <MinimizeIcon />
           </Button>
-          <Button
-            class="titlebar-button"
-            icon-only
-            @click="() => getCurrentWindow().toggleMaximize()"
-          >
+          <Button class="titlebar-button" icon-only @click="() => getCurrentWindow().toggleMaximize()">
             <RestoreIcon v-if="isMaximized" />
             <MaximizeIcon v-else />
           </Button>
@@ -552,44 +535,31 @@ function handleAuxClick(e) {
       </section>
     </div>
   </div>
-  <div
-    v-if="stateInitialized"
-    class="app-contents experimental-styles-within"
-    :class="{ 'sidebar-enabled': sidebarVisible }"
-  >
+  <div v-if="stateInitialized" class="app-contents experimental-styles-within" :style="{
+    'padding-right': rightReservedWidth + 'px',
+    '--sidebar-width': sidebarWidth + 'px'
+  }">
     <div class="app-viewport flex-grow router-view">
-      <div
-        class="loading-indicator-container h-8 fixed z-50"
-        :style="{
-          top: 'calc(var(--top-bar-height))',
-          left: 'calc(var(--left-bar-width))',
-          width: 'calc(100% - var(--left-bar-width) - var(--right-bar-width))',
-        }"
-      >
+      <div class="loading-indicator-container h-8 fixed z-50" :style="{
+        top: 'calc(var(--top-bar-height))',
+        left: 'calc(var(--left-bar-width))',
+        width: `calc(100% - var(--left-bar-width) - ${rightReservedWidth}px)`,
+      }">
         <ModrinthLoadingIndicator />
       </div>
-      <div
-        v-if="themeStore.featureFlags.page_path"
-        class="absolute bottom-0 left-0 m-2 bg-tooltip-bg text-tooltip-text font-semibold rounded-full px-2 py-1 text-xs z-50"
-      >
+      <div v-if="themeStore.featureFlags.page_path"
+        class="absolute bottom-0 left-0 m-2 bg-tooltip-bg text-tooltip-text font-semibold rounded-full px-2 py-1 text-xs z-50">
         {{ route.fullPath }}
       </div>
-      <div
-        id="background-teleport-target"
-        class="absolute h-full -z-10 rounded-tl-[--radius-xl] overflow-hidden"
-        :style="{
-          width: 'calc(100% - var(--right-bar-width))',
-        }"
-      ></div>
-      <div
-        v-if="criticalErrorMessage"
-        class="m-6 mb-0 flex flex-col border-red bg-bg-red rounded-2xl border-2 border-solid p-4 gap-1 font-semibold text-contrast"
-      >
+      <div id="background-teleport-target" class="absolute h-full -z-10 rounded-tl-[--radius-xl] overflow-hidden"
+        :style="{ width: `calc(100% - ${rightReservedWidth}px)` }"></div>
+      <div v-if="showFilterSidebarTarget" id="sidebar-teleport-target"
+        class="absolute top-0 bottom-0 right-0 z-40 overflow-auto bg-bg-raised/90 backdrop-blur-sm border-l border-divider"
+        :style="{ right: (showFriendsSidebar ? `${sidebarWidth}px` : '0px'), width: '320px' }"></div>
+      <div v-if="criticalErrorMessage"
+        class="m-6 mb-0 flex flex-col border-red bg-bg-red rounded-2xl border-2 border-solid p-4 gap-1 font-semibold text-contrast">
         <h1 class="m-0 text-lg font-extrabold">{{ criticalErrorMessage.header }}</h1>
-        <div
-          class="markdown-body text-primary"
-          v-html="renderString(criticalErrorMessage.body ?? '')"
-        ></div>
+        <div class="markdown-body text-primary" v-html="renderString(criticalErrorMessage.body ?? '')"></div>
       </div>
       <RouterView v-slot="{ Component }">
         <template v-if="Component">
@@ -599,30 +569,9 @@ function handleAuxClick(e) {
         </template>
       </RouterView>
     </div>
-    <div
-      class="app-sidebar mt-px shrink-0 flex flex-col border-0 border-l-[1px] border-[--brand-gradient-border] border-solid overflow-auto"
-      :class="{ 'has-plus': hasPlus }"
-    >
-      <div
-        class="app-sidebar-scrollable flex-grow shrink overflow-y-auto relative"
-        :class="{ 'pb-12': !hasPlus }"
-      >
-        <div id="sidebar-teleport-target" class="sidebar-teleport-content"></div>
-        <div class="sidebar-default-content" :class="{ 'sidebar-enabled': sidebarVisible }">
-          <div class="p-4 border-0 border-b-[1px] border-[--brand-gradient-border] border-solid">
-            <h3 class="text-lg m-0">Playing as</h3>
-            <suspense>
-              <AccountsCard ref="accounts" mode="small" />
-            </suspense>
-          </div>
-          <div class="p-4 border-0 border-b-[1px] border-[--brand-gradient-border] border-solid">
-            <suspense>
-              <FriendsList :credentials="credentials" :sign-in="() => signIn()" />
-            </suspense>
-          </div>
-        </div>
-      </div>
-    </div>
+
+    <!-- 可折叠的好友侧边栏（在发现模组/项目页隐藏） -->
+    <CollapsibleFriendsSidebar v-if="showFriendsSidebar" ref="friendsSidebar" @sidebar-toggle="handleSidebarToggle" />
   </div>
   <URLConfirmModal ref="urlModal" />
   <Notifications ref="notificationsWrapper" sidebar />
@@ -677,6 +626,7 @@ function handleAuxClick(e) {
     }
 
     &.close {
+
       &:hover,
       &:active {
         color: var(--color-accent-contrast);
@@ -703,7 +653,6 @@ function handleAuxClick(e) {
 .app-contents {
   --top-bar-height: 3rem;
   --left-bar-width: 4rem;
-  --right-bar-width: 300px;
 }
 
 .app-grid-layout {
@@ -719,10 +668,14 @@ function handleAuxClick(e) {
 
 .app-grid-navbar {
   grid-area: nav;
+  z-index: 50;
+  position: relative;
 }
 
 .app-grid-statusbar {
   grid-area: status;
+  z-index: 50;
+  position: relative;
 }
 
 [data-tauri-drag-region] {
@@ -743,14 +696,6 @@ function handleAuxClick(e) {
   height: calc(100vh - var(--top-bar-height));
   background-color: var(--color-bg);
   border-top-left-radius: var(--radius-xl);
-
-  display: grid;
-  grid-template-columns: 1fr 0px;
-  // transition: grid-template-columns 0.4s ease-in-out;
-
-  &.sidebar-enabled {
-    grid-template-columns: 1fr 300px;
-  }
 }
 
 .loading-indicator-container {
@@ -758,44 +703,7 @@ function handleAuxClick(e) {
   overflow: hidden;
 }
 
-.app-sidebar {
-  overflow: visible;
-  width: 300px;
-  position: relative;
-  height: calc(100vh - var(--top-bar-height));
-  background: var(--brand-gradient-bg);
-
-  --color-button-bg: var(--brand-gradient-button);
-  --color-button-bg-hover: var(--brand-gradient-border);
-  --color-divider: var(--brand-gradient-border);
-  --color-divider-dark: var(--brand-gradient-border);
-}
-
-.app-sidebar::after {
-  content: '';
-  position: absolute;
-  bottom: 250px;
-  left: 0;
-  right: 0;
-  height: 5rem;
-  background: var(--brand-gradient-fade-out-color);
-  pointer-events: none;
-}
-
-.app-sidebar.has-plus::after {
-  display: none;
-}
-
-.app-sidebar::before {
-  content: '';
-  box-shadow: -15px 0 15px -15px rgba(0, 0, 0, 0.2) inset;
-  top: 0;
-  bottom: 0;
-  left: -2rem;
-  width: 2rem;
-  position: absolute;
-  pointer-events: none;
-}
+/* 移除原侧边栏样式，使用新的可折叠好友侧边栏 */
 
 .app-viewport {
   flex-grow: 1;
@@ -810,25 +718,13 @@ function handleAuxClick(e) {
   position: fixed;
   left: var(--left-bar-width);
   top: var(--top-bar-height);
-  right: calc(-1 * var(--left-bar-width));
+  right: var(--sidebar-width, 64px);
   bottom: calc(-1 * var(--left-bar-width));
   border-radius: var(--radius-xl);
   box-shadow:
     1px 1px 15px rgba(0, 0, 0, 0.2) inset,
     inset 1px 1px 1px rgba(255, 255, 255, 0.23);
   pointer-events: none;
-}
-
-.sidebar-teleport-content {
-  display: contents;
-}
-
-.sidebar-default-content {
-  display: none;
-}
-
-.sidebar-teleport-content:empty + .sidebar-default-content.sidebar-enabled {
-  display: contents;
 }
 </style>
 <style>

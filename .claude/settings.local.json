@@ -5,7 +5,10 @@
       "Bash(pnpm install:*)",
       "Bash(pnpm add:*)",
       "Bash(cargo install:*)",
-      "Bash(cargo:*)"
+      "Bash(cargo:*)",
+      "WebFetch(domain:apifox.com)",
+      "WebFetch(domain:s.apifox.cn)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

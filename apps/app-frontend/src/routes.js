@@ -44,6 +44,15 @@ export default new createRouter({
       },
     },
     {
+      path: '/server/:id',
+      name: 'ServerDetail',
+      component: Pages.ServerDetail,
+      props: true,
+      meta: {
+        breadcrumb: [{ name: 'Home', link: '/' }, { name: '?Server' }],
+      },
+    },
+    {
       path: '/library',
       name: 'Library',
       component: Library.Index,

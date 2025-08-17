@@ -140,3 +140,48 @@ export type InstanceSettingsTabProps = {
   instance: GameInstance
   offline?: boolean
 }
+
+type ServerInfo = {
+  serverId: string
+  serverName: string
+  serverIp: string
+  serverPort: number
+  gameMode: string
+  difficulty: string
+  currentPlayers: number
+  maxPlayers: number
+  minecraftVersion: string
+  isOnlineMode: boolean
+  category?: string
+  description?: string
+  icon?: string
+  ping?: number
+  dailyActiveUsers?: number
+  averageTps?: number
+  peakPlayers?: number
+  uptime?: number
+}
+
+type ServerListResponse = {
+  success: boolean
+  code: number
+  payload: {
+    servers: ServerInfo[]
+    nextCursor?: string
+    hasMore: boolean
+  }
+}
+
+type ServerCategory = 'all' | 'survival' | 'creative' | 'modded' | 'mini-games' | 'pvp'
+
+type ServerFilterOptions = {
+  minPlayers?: number
+  maxPlayers?: number
+  minDailyActive?: number
+  minTps?: number
+  maxPing?: number
+  minUptime?: number
+  onlineMode?: boolean
+}
+
+type ServerSortBy = 'popularity' | 'players' | 'ping' | 'tps' | 'uptime' | 'daily_active'
