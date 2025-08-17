@@ -66,6 +66,11 @@
           </div>
         </div>
 
+        <!-- 账号状态 / 选择器 -->
+        <div class="p-4 border-b border-divider bg-bg-raised">
+          <AccountsCard mode="isolated" />
+        </div>
+
         <!-- 好友列表 -->
         <div class="flex-1 overflow-y-auto">
           <!-- 在线好友 -->
@@ -161,6 +166,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getAllFriends, getOnlineFriends, getOfflineFriends, type MockFriend } from '@/helpers/mockFriends'
+import AccountsCard from '@/components/ui/AccountsCard.vue'
 
 // 定义事件
 const emit = defineEmits<{

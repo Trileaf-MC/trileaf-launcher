@@ -7,10 +7,7 @@
     <div v-else-if="!server" class="text-center py-12">
       <h2 class="text-xl font-bold text-secondary mb-2">服务器未找到</h2>
       <p class="text-secondary mb-4">请检查服务器ID是否正确</p>
-      <button
-        @click="$router.push('/')"
-        class="px-6 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
-      >
+      <button @click="$router.push('/')" class="px-6 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600">
         返回大厅
       </button>
     </div>
@@ -24,10 +21,8 @@
             <p v-if="server.description" class="text-secondary mb-4">{{ server.description }}</p>
             <div class="flex items-center gap-4 text-sm">
               <div class="flex items-center gap-2">
-                <div 
-                  class="w-3 h-3 rounded-full" 
-                  :class="getStatusColor(server.currentPlayers, server.maxPlayers)"
-                ></div>
+                <div class="w-3 h-3 rounded-full" :class="getStatusColor(server.currentPlayers, server.maxPlayers)">
+                </div>
                 <span>{{ server.currentPlayers }}/{{ server.maxPlayers }} 在线</span>
               </div>
               <span v-if="server.ping" :class="getPingColor(server.ping)">
@@ -36,11 +31,8 @@
               <span v-if="server.isOnlineMode" class="text-green-600">正版验证</span>
             </div>
           </div>
-          <button
-            @click="joinServer"
-            :disabled="joining"
-            class="px-6 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
+          <button @click="joinServer" :disabled="joining"
+            class="px-6 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium">
             {{ joining ? '准备中...' : '一键加入' }}
           </button>
         </div>
@@ -55,7 +47,7 @@
               <p>难度: {{ server.difficulty }}</p>
             </div>
           </div>
-          
+
           <div class="bg-bg p-4 rounded-lg">
             <h3 class="font-semibold mb-2">玩家统计</h3>
             <div class="space-y-1 text-secondary">
@@ -68,10 +60,8 @@
           <div class="bg-bg p-4 rounded-lg">
             <h3 class="font-semibold mb-2">服务器类型</h3>
             <div class="space-y-2">
-              <span 
-                class="inline-block px-3 py-1 rounded-full text-xs font-medium"
-                :class="getCategoryStyle(server.category)"
-              >
+              <span class="inline-block px-3 py-1 rounded-full text-xs font-medium"
+                :class="getCategoryStyle(server.category)">
                 {{ getCategoryLabel(server.category) }}
               </span>
             </div>
@@ -86,18 +76,11 @@
           暂无在线玩家信息
         </div>
         <div v-else class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <div
-            v-for="player in onlinePlayers"
-            :key="player.uuid"
-            class="flex flex-col items-center gap-2 p-3 bg-bg rounded-lg"
-          >
+          <div v-for="player in onlinePlayers" :key="player.uuid"
+            class="flex flex-col items-center gap-2 p-3 bg-bg rounded-lg">
             <div class="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
-              <img 
-                :src="`https://crafatar.com/avatars/${player.uuid}?size=48`"
-                :alt="player.name"
-                class="w-full h-full object-cover"
-                @error="onAvatarError"
-              />
+              <img :src="`https://crafatar.com/avatars/${player.uuid}?size=48`" :alt="player.name"
+                class="w-full h-full object-cover" @error="onAvatarError" />
             </div>
             <span class="text-sm font-medium truncate max-w-full">{{ player.name }}</span>
           </div>
@@ -108,11 +91,7 @@
       <div v-if="serverMods.length > 0" class="bg-bg-raised border border-divider rounded-lg p-6">
         <h2 class="text-xl font-bold mb-4">所需模组</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div
-            v-for="mod in serverMods"
-            :key="mod.id"
-            class="flex items-center gap-3 p-3 bg-bg rounded-lg"
-          >
+          <div v-for="mod in serverMods" :key="mod.id" class="flex items-center gap-3 p-3 bg-bg rounded-lg">
             <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
               <span class="text-xs font-bold">{{ mod.name.charAt(0).toUpperCase() }}</span>
             </div>
@@ -134,6 +113,7 @@ import { useBreadcrumbs } from '@/store/breadcrumbs'
 import { handleError } from '@/store/notifications.js'
 import { getServerDetails, serverCategories } from '@/helpers/servers'
 import type { ServerInfo } from '@/helpers/types'
+import { joinServerOneClick } from '@/helpers/serverJoin'
 
 const route = useRoute()
 const router = useRouter()
@@ -196,7 +176,7 @@ function getServerMods(serverId: string) {
       { id: 'astral', name: 'Astral Sorcery', version: '1.18.2-1.16.5' },
     ]
   }
-  
+
   return modSets[serverId as keyof typeof modSets] || []
 }
 
@@ -208,7 +188,7 @@ async function fetchServerDetails() {
   }
 
   loading.value = true
-  
+
   try {
     const serverData = await getServerDetails(serverId)
     if (serverData) {
@@ -218,9 +198,9 @@ async function fetchServerDetails() {
       if (specificMods.length > 0) {
         serverMods.value = specificMods
       }
-      breadcrumbs.setRootContext({ 
-        name: serverData.serverName, 
-        link: route.path 
+      breadcrumbs.setRootContext({
+        name: serverData.serverName,
+        link: route.path
       })
     }
   } catch (error) {
@@ -232,23 +212,9 @@ async function fetchServerDetails() {
 
 async function joinServer() {
   if (!server.value || joining.value) return
-  
   joining.value = true
-  
   try {
-    // 这里应该调用后端API来处理服务器加入逻辑
-    // 1. 检查是否需要下载模组
-    // 2. 创建或更新游戏实例
-    // 3. 启动游戏
-    
-    console.log('Joining server:', server.value.serverName)
-    
-    // 模拟加入过程
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // 加入成功后的处理
-    alert(`正在准备加入服务器: ${server.value.serverName}`)
-    
+    await joinServerOneClick(server.value)
   } catch (error) {
     handleError(error)
   } finally {

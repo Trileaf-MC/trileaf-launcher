@@ -1,17 +1,9 @@
 <template>
-  <div
-    v-if="mode !== 'isolated'"
-    ref="button"
+  <div v-if="mode !== 'isolated'" ref="button"
     class="button-base mt-2 px-3 py-2 bg-button-bg rounded-xl flex items-center gap-2"
-    :class="{ expanded: mode === 'expanded' }"
-    @click="toggleMenu"
-  >
-    <Avatar
-      size="36px"
-      :src="
-        selectedAccount ? avatarUrl : 'https://launcher-files.modrinth.com/assets/steve_head.png'
-      "
-    />
+    :class="{ expanded: mode === 'expanded' }" @click="toggleMenu">
+    <Avatar size="36px" :src="selectedAccount ? avatarUrl : 'https://launcher-files.modrinth.com/assets/steve_head.png'
+      " />
     <div class="flex flex-col w-full">
       <span>{{ selectedAccount ? selectedAccount.profile.name : 'Select account' }}</span>
       <span class="text-secondary text-xs">Minecraft account</span>
@@ -19,36 +11,21 @@
     <DropdownIcon class="w-5 h-5 shrink-0" />
   </div>
   <transition name="fade">
-    <Card
-      v-if="showCard || mode === 'isolated'"
-      ref="card"
-      class="account-card"
-      :class="{ expanded: mode === 'expanded', isolated: mode === 'isolated' }"
-    >
+    <Card v-if="showCard || mode === 'isolated'" ref="card" class="account-card"
+      :class="{ expanded: mode === 'expanded', isolated: mode === 'isolated' }">
       <div v-if="selectedAccount" class="selected account">
         <Avatar size="xs" :src="avatarUrl" />
         <div>
           <h4>{{ selectedAccount.profile.name }}</h4>
           <p>Selected</p>
         </div>
-        <Button
-          v-tooltip="'Log out'"
-          icon-only
-          color="raised"
-          @click="logout(selectedAccount.profile.id)"
-        >
+        <Button v-tooltip="'Log out'" icon-only color="raised" @click="logout(selectedAccount.profile.id)">
           <TrashIcon />
         </Button>
       </div>
       <div v-else class="logged-out account">
         <h4>Not signed in</h4>
-        <Button
-          v-tooltip="'Log in'"
-          :disabled="loginDisabled"
-          icon-only
-          color="primary"
-          @click="login()"
-        >
+        <Button v-tooltip="'Log in'" :disabled="loginDisabled" icon-only color="primary" @click="login()">
           <LogInIcon v-if="!loginDisabled" />
           <SpinnerIcon v-else class="animate-spin" />
         </Button>
@@ -100,7 +77,7 @@ defineProps({
 
 const emit = defineEmits(['change'])
 
-const accounts = ref({})
+const accounts = ref([])
 const loginDisabled = ref(false)
 const defaultUser = ref()
 const equippedSkin = ref(null)
@@ -136,7 +113,6 @@ defineExpose({
   setLoginDisabled,
   loginDisabled,
 })
-await refreshValues()
 
 const displayAccounts = computed(() =>
   accounts.value.filter((account) => defaultUser.value !== account.profile.id),
@@ -227,14 +203,16 @@ function toggleMenu(override = true) {
   }
 }
 
-const unlisten = await process_listener(async (e) => {
-  if (e.event === 'launched') {
-    await refreshValues()
-  }
-})
+let unlisten
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('click', handleClickOutside)
+  await refreshValues()
+  unlisten = await process_listener(async (e) => {
+    if (e.event === 'launched') {
+      await refreshValues()
+    }
+  })
 })
 
 onBeforeUnmount(() => {
@@ -242,7 +220,7 @@ onBeforeUnmount(() => {
 })
 
 onUnmounted(() => {
-  unlisten()
+  if (unlisten) unlisten()
 })
 </script>
 
