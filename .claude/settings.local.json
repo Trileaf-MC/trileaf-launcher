@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm app:dev:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm add:*)",
+      "Bash(cargo install:*)",
+      "Bash(cargo:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

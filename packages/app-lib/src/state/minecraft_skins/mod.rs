@@ -1,5 +1,5 @@
 use futures::{Stream, StreamExt, stream};
-use uuid::{Uuid, fmt::Hyphenated};
+use uuid::Uuid;
 
 use super::MinecraftSkinVariant;
 
@@ -41,7 +41,7 @@ impl DefaultMinecraftCape {
 
         Ok(sqlx::query_as!(
             Self,
-            "SELECT id AS 'id: Hyphenated' FROM default_minecraft_capes WHERE minecraft_user_uuid = ?",
+            "SELECT id AS 'id: uuid::fmt::Hyphenated' FROM default_minecraft_capes WHERE minecraft_user_uuid = ?",
             minecraft_user_id
         )
         .fetch_optional(&mut *db.acquire().await?)
@@ -122,7 +122,7 @@ impl CustomMinecraftSkin {
         let minecraft_user_id = minecraft_user_id.as_hyphenated();
 
         Ok(stream::iter(sqlx::query!(
-            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant', cape_id AS 'cape_id: Hyphenated' \
+            "SELECT texture_key, variant AS 'variant: MinecraftSkinVariant', cape_id AS 'cape_id: uuid::fmt::Hyphenated' \
             FROM custom_minecraft_skins \
             WHERE minecraft_user_uuid = ? \
             ORDER BY rowid ASC \

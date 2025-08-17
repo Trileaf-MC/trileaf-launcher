@@ -7,3 +7,6 @@ linker = "rust-lld"
 
 [build]
 rustflags = ["--cfg", "tokio_unstable"]
+
+[env]
+SQLX_OFFLINE = "true"
